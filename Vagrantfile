@@ -1,6 +1,7 @@
 # -*- mode: ruby -*-
 # vi: set ft=ruby :
 
+# Install the chef client from a downloaded package
 CHEF_SERVER_INSTALL = <<-EOF
 #!/bin/sh
 test -d /opt/chef-server || {
@@ -12,12 +13,7 @@ test -d /opt/chef-server || {
 }
 EOF
 
-CHEF_CLIENT_PROVISION = lambda do |chef|
-  chef.chef_server_url = 'https://192.168.34.10'
-  chef.validation_key_path = ".chef/chef-validator.pem"
-  chef.validation_client_name = "chef-validator"
-end
-
+# Install the "workstation" in the project repository and configure knife to connect to the chef server
 CHEF_CREATE_WORKSTATION = <<-EOF
 #!/bin/sh
 mkdir -p /vagrant/.chef
@@ -41,6 +37,9 @@ EOF
 
 Vagrant.configure('2') do |config|
   config.vm.define :chefserver do |node|
+    node.vm.box_url = 'https://s3.amazonaws.com/vagrant_wd/wd-ubuntu-12.04.box'
+    node.vm.box = 'wd-ubuntu-12.04'
+
     config.vm.provider :virtualbox do |vb|
       vb.customize ["modifyvm", :id, "--memory", 1024]
     end
@@ -56,8 +55,20 @@ Vagrant.configure('2') do |config|
   config.vm.define :chefclient do |node|
     node.vm.network :private_network, ip: "192.168.34.11"
     node.vm.box_url = 'https://s3.amazonaws.com/vagrant_wd/wd-ubuntu-12.04.box'
-    node.vm.hostname = 'chefclient.test.vm'
     node.vm.box = 'wd-ubuntu-12.04'
+    node.vm.hostname = 'chefclient.test.vm'
+
+    # configure the chef client node to run as a client connecting to the chef server
+    config.vm.provision :chef_client do |chef|
+      chef.chef_server_url = "https://192.168.34.10/"
+      chef.validation_key_path = "./.chef/chef-validator.pem"
+    end
+  end
+
+  config.vm.define :chefsolo do |node|
+    node.vm.box_url = 'https://s3.amazonaws.com/vagrant_wd/wd-ubuntu-12.04.box'
+    node.vm.box = 'wd-ubuntu-12.04'
+    node.vm.hostname = 'chefsolo.test.vm'
 
     node.vm.provision :chef_solo do |chef|
        chef.add_role "base"
